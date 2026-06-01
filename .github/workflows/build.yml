@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # --- بناء تطبيق لينكس (DEB) للتجربة ---
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +20,7 @@ jobs:
       - name: Install system dependencies for Tauri
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
           
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -34,14 +33,12 @@ jobs:
           rsync -av --exclude='src-tauri' --exclude='.github' --exclude='node_modules' --exclude='dist' --exclude='app' . dist/
           npx tauri init --ci --app-name "Clinic_CRM" --frontend-dist "../dist" --dev-url "http://localhost:8080"
           
-          # ضبط الأيقونة للينكس
           if [ -f icon.png ]; then
             npx tauri icon icon.png
           elif [ -f icon_1024.png ]; then
             npx tauri icon icon_1024.png
           fi
           
-          # ضبط الإعدادات للينكس باستخدام متغير صريح لمنع خطأ الـ sed
           CONFIG_FILE="src-tauri/tauri.conf.json"
           sed -i 's/"com.tauri.dev"/"dev.mohamedghanem.clinic"/' "$CONFIG_FILE"
           sed -i 's/"npm run build": "[^"]*"/"npm run build": null/' "$CONFIG_FILE"
