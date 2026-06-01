@@ -39,12 +39,20 @@ jobs:
             npx tauri icon icon_1024.png
           fi
           
-          CONFIG_FILE="src-tauri/tauri.conf.json"
-          
-          # استبدال وتعديل القيم مباشرة داخل الـ JSON لمنع خطأ npm run build
-          sed -i 's/"com.tauri.dev" /"dev.mohamedghanem.clinic"/' "$CONFIG_FILE"
-          sed -i 's/"beforeBuildCommand": "[^"]*"/"beforeBuildCommand": null/' "$CONFIG_FILE"
-          sed -i 's/"beforeDevCommand": "[^"]*"/"beforeDevCommand": null/' "$CONFIG_FILE"
+          # تعديل ملف التكوين باستخدام Node.js لضمان الدقة وتفادي أخطاء المسافات
+          node -e '
+            const fs = require("fs");
+            const configPath = "src-tauri/tauri.conf.json";
+            const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+            
+            // تعديل الهوية والتعطيل التلقائي للأوامر الخارجية
+            config.tauri.bundle.identifier = "dev.mohamedghanem.clinic";
+            config.build.beforeBuildCommand = null;
+            config.build.beforeDevCommand = null;
+            
+            fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+            console.log("✅ tauri.conf.json updated successfully via Node.js!");
+          '
           
       - name: Build Linux App
         run: npx tauri build
