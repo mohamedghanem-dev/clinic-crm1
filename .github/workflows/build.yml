@@ -38,10 +38,14 @@ jobs:
           npx cap add android
       - name: Setup icon
         run: |
-          # نسخ الأيقونة الحقيقية من المجلد الرئيسي إلى مجلد app برأس مرفوع ومسار صحيح
+          # 1. نسخ الأيقونة لمجلد app
           cp icon.png app/icon.png
-          cd app
-          python3 resize_icon.py
+          # 2. تشغيل السكريبت من المجلد الرئيسي وتوجيهه للأيقونة المنسوخة بالداخل
+          if [ -f resize_icon.py ]; then
+            python3 resize_icon.py app/icon.png || python3 resize_icon.py
+          else
+            echo "Skipping local script, relying on capacitor-assets"
+          fi
       - name: Generate assets
         run: |
           cd app
