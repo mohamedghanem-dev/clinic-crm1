@@ -20,8 +20,6 @@ jobs:
           java-version: '21'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-      - name: Install Pillow
-        run: pip install Pillow --quiet
       - name: Prepare build folder
         run: |
           mkdir -p app/build
@@ -38,17 +36,21 @@ jobs:
           npx cap add android
       - name: Setup icon
         run: |
-          # 1. نسخ الأيقونة لمجلد app
-          cp icon.png app/icon.png
-          # 2. تشغيل السكريبت من المجلد الرئيسي وتوجيهه للأيقونة المنسوخة بالداخل
-          if [ -f resize_icon.py ]; then
-            python3 resize_icon.py app/icon.png || python3 resize_icon.py
-          else
-            echo "Skipping local script, relying on capacitor-assets"
+          # إنشاء مجلد الأصول الافتراضي لـ Capacitor وضمان وجوده
+          mkdir -p app/assets
+          
+          # نسخ أيقونة الـ 1024 الحقيقية وتسميتها بالاسم القياسي المعتمد للتوليد
+          if [ -f icon_1024.png ]; then
+            cp icon_1024.png app/assets/icon-only.png
+            cp icon_1024.png app/assets/icon.png
+          elif [ -f icon.png ]; then
+            cp icon.png app/assets/icon-only.png
+            cp icon.png app/assets/icon.png
           fi
       - name: Generate assets
         run: |
           cd app
+          # توليد كافة مقاسات الأندرويد أوتوماتيكياً من الأيقونة التي نسخناها
           npx capacitor-assets generate --android
       - name: Build APK
         run: |
@@ -81,7 +83,14 @@ jobs:
           mkdir dist
           Copy-Item -Path ".*", "*" -Destination "dist" -Recurse -Exclude "src-tauri", ".github", "node_modules", "dist", "app" -ErrorAction SilentlyContinue
           npx tauri init --ci --app-name "Clinic_CRM" --frontend-dist "../dist" --dev-url "http://localhost:8080"
-          if (Test-Path "icon.png") { npx tauri icon icon.png }
+          
+          # للويندوز سنعطيه أولوية استخدام icon.png أو icon_1024.png المتوفر
+          if (Test-Path "icon.png") { 
+              npx tauri icon icon.png 
+          } elseif (Test-Path "icon_1024.png") {
+              npx tauri icon icon_1024.png
+          }
+          
           $configPath = "src-tauri/tauri.conf.json"
           $content = Get-Content $configPath
           $content = $content -replace '"com.tauri.dev"', '"dev.mohamedghanem.clinic"'
