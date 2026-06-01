@@ -36,7 +36,7 @@ jobs:
             --app-name "ClinicCRM" \
             --frontend-dist "../dist"
 
-          # تعديل الهوية وضبط الأهداف للماك لضمان نجاح Tauri v2
+          # تعديل الهوية وتخطي الأيقونات التالفة لضمان نجاح البناء بدون توقف
           node -e '
             const fs = require("fs");
             const configPath = "src-tauri/tauri.conf.json";
@@ -46,16 +46,14 @@ jobs:
               config.identifier = "com.clinic.crm";
               if (!config.bundle) config.bundle = {};
               config.bundle.targets = ["dmg"];
+              
+              // حذف أي مسارات أيقونات مخصصة قد تسبب خطأ الديكودر أثناء الـ build
+              if (config.bundle.icon) delete config.bundle.icon;
+              
               fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-              console.log("🍏 tauri.conf.json adapted for macOS successfully!");
+              console.log("🍏 tauri.conf.json adapted for macOS safely without custom icons!");
             }
           '
-
-          if [ -f icon_1024.png ]; then
-            npx tauri icon icon_1024.png
-          elif [ -f icon.png ]; then
-            npx tauri icon icon.png
-          fi
 
       - name: Build macOS App
         run: npx tauri build
