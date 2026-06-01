@@ -39,7 +39,7 @@ jobs:
             npx tauri icon icon_1024.png
           fi
           
-          # تصحيح ذكي متوافق مع Tauri v1 و v2 معاً
+          # تعديل الهيكل ليتوافق تماماً مع تدوين وصيغة Tauri v2 الرسمية
           node -e '
             const fs = require("fs");
             const configPath = "src-tauri/tauri.conf.json";
@@ -48,22 +48,24 @@ jobs:
               
               config.productName = "ClinicCRM";
               
-              // لتوافق الإصدارات: لو البنية القديمة موجودة نعدلها، لو الجديدة نعدلها مباشرة
-              if (config.tauri) {
-                if (!config.tauri.bundle) config.tauri.bundle = {};
-                config.tauri.bundle.identifier = "com.clinic.crm";
-              } else {
-                if (!config.bundle) config.bundle = {};
-                config.bundle.identifier = "com.clinic.crm";
+              // التوافق المطلق مع Tauri v2: الـ identifier يكون في الجذور مباشرة
+              config.identifier = "com.clinic.crm";
+              
+              // تنظيف أي حقول قديمة تسبب تعارض مع الـ Schema لـ v2
+              if (config.bundle) {
+                delete config.bundle.identifier;
+              }
+              if (config.tauri && config.tauri.bundle) {
+                delete config.tauri.bundle.identifier;
               }
               
-              // تفريغ أوامر البناء المسبق لمنع خطأ missing script
+              // تعطيل أوامر الـ pre-build لتفادي مشاكل الـ scripts المفقودة
               if (!config.build) config.build = {};
               config.build.beforeBuildCommand = "";
               config.build.beforeDevCommand = "";
               
               fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-              console.log("✅ tauri.conf.json adapted for Linux successfully!");
+              console.log("✅ tauri.conf.json adapted for Tauri v2 successfully!");
             }
           '
           
