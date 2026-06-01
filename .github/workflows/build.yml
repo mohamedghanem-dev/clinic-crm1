@@ -40,9 +40,11 @@ jobs:
           fi
           
           CONFIG_FILE="src-tauri/tauri.conf.json"
-          sed -i 's/"com.tauri.dev"/"dev.mohamedghanem.clinic"/' "$CONFIG_FILE"
-          sed -i 's/"npm run build": "[^"]*"/"npm run build": null/' "$CONFIG_FILE"
-          sed -i 's/"npm run dev": "[^"]*"/"npm run dev": null/' "$CONFIG_FILE"
+          
+          # استبدال وتعديل القيم مباشرة داخل الـ JSON لمنع خطأ npm run build
+          sed -i 's/"com.tauri.dev" /"dev.mohamedghanem.clinic"/' "$CONFIG_FILE"
+          sed -i 's/"beforeBuildCommand": "[^"]*"/"beforeBuildCommand": null/' "$CONFIG_FILE"
+          sed -i 's/"beforeDevCommand": "[^"]*"/"beforeDevCommand": null/' "$CONFIG_FILE"
           
       - name: Build Linux App
         run: npx tauri build
