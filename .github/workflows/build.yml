@@ -36,12 +36,14 @@ jobs:
             --app-name "ClinicCRM" \
             --frontend-dist "../dist"
 
-          # تصحيح توري لإصدار v2 وضبط قيم الأوامر لتكون null حقيقي لمنع انهيار البناء
+          # تصحيح الـ Schema وحذف identifier من الـ bundle تماماً منعا للتعارض
           node -e '
             const fs = require("fs");
             const configPath = "src-tauri/tauri.conf.json";
             if (fs.existsSync(configPath)) {
               const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+              
+              // الـ identifier مكانه الصحيح في الجذر فقط لـ Tauri v2
               config.productName = "ClinicCRM";
               config.identifier = "com.clinic.crm";
               
@@ -49,16 +51,17 @@ jobs:
               config.build.beforeBuildCommand = null;
               config.build.beforeDevCommand = null;
               
+              // إعداد الـ bundle بدون تكرار الـ identifier بالداخل
               if (!config.bundle) config.bundle = {};
-              config.bundle.identifier = "com.clinic.crm";
               config.bundle.targets = ["dmg"];
+              if (config.bundle.identifier) delete config.bundle.identifier;
               
               fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-              console.log("🍏 Configured tauri.conf.json for macOS build successfully!");
+              console.log("🍏 tauri.conf.json schema fixed perfectly for v2!");
             }
           '
 
-          # توليد الأيقونات لكل المنصات من الأيقونة السليمة الجديدة
+          # توليد حزم الأيقونات من ملفك السليم
           if [ -f icon_1024.png ]; then
             npx tauri icon icon_1024.png
           elif [ -f icon.png ]; then
