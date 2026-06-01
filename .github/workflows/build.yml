@@ -1,4 +1,4 @@
-name: Build Cross-Platform App (Android, Windows & Linux)
+name: Test Linux Build Only (Nexus Arab)
 
 on:
   push:
@@ -6,121 +6,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  # --- بناء تطبيق الأندرويد ---
-  build-android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Prepare build folder
-        run: |
-          mkdir -p app/build
-          rsync -av --exclude='.github' --exclude='app' --exclude='node_modules' . app/build/
-      - name: Init Capacitor
-        run: |
-          cd app
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
-          npx cap init "Clinic CRM" "dev.mohamedghanem.clinic" --web-dir build
-      - name: Add Android
-        run: |
-          cd app
-          npx cap add android
-      - name: Setup icon
-        run: |
-          mkdir -p app/assets
-          if [ -f icon_1024.png ]; then
-            cp icon_1024.png app/assets/icon-only.png
-            cp icon_1024.png app/assets/icon.png
-          elif [ -f icon.png ]; then
-            cp icon.png app/assets/icon-only.png
-            cp icon.png app/assets/icon.png
-          fi
-      - name: Generate assets
-        run: |
-          cd app
-          npx capacitor-assets generate --android
-      - name: Build APK
-        run: |
-          cd app/android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Clinic-CRM-Android-APK
-          path: app/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-  # --- بناء تطبيق الويندوز ---
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Install Tauri CLI & Setup Project
-        shell: pwsh
-        run: |
-          npm init -y
-          npm install @tauri-apps/cli @tauri-apps/api
-          mkdir dist
-          Copy-Item -Path ".*", "*" -Destination "dist" -Recurse -Exclude "src-tauri", ".github", "node_modules", "dist", "app" -ErrorAction SilentlyContinue
-          npx tauri init --ci --app-name "Clinic_CRM" --frontend-dist "../dist" --dev-url "http://localhost:8080"
-          
-          if (Test-Path "icon.png") { 
-              npx tauri icon icon.png 
-          } elseif (Test-Path "icon_1024.png") {
-              npx tauri icon icon_1024.png
-          }
-          
-          $configPath = "src-tauri/tauri.conf.json"
-          $content = Get-Content $configPath
-          $content = $content -replace '"com.tauri.dev"', '"dev.mohamedghanem.clinic"'
-          $content = $content -replace '"npm run build"', 'null'
-          $content = $content -replace '"npm run dev"', 'null'
-          $content | Set-Content $configPath
-      - name: Build Windows Desktop App
-        run: npx tauri build
-      - name: Upload Windows Installer (MSI)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Clinic-CRM-Windows-MSI
-          path: src-tauri/target/release/bundle/msi/*.msi
-      - name: Upload Windows Executable (EXE)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Clinic-CRM-Windows-EXE
-          path: src-tauri/target/release/*.exe
-
-  # --- بناء تطبيق لينكس المحسّن (DEB) ---
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          
       - name: Install system dependencies for Tauri
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        
       - name: Install Tauri CLI & Setup Project
         run: |
           npm init -y
@@ -135,7 +39,7 @@ jobs:
             npx tauri icon icon_1024.png
           fi
           
-          # تصحيح ملف tauri.conf.json للينكس بأمان تام ومنع الانهيار البرمجي
+          # تصحيح ذكي متوافق مع Tauri v1 و v2 معاً
           node -e '
             const fs = require("fs");
             const configPath = "src-tauri/tauri.conf.json";
@@ -144,22 +48,28 @@ jobs:
               
               config.productName = "ClinicCRM";
               
-              // بناء الهيكل البرمجي بأمان في حال لم يكن معرّفاً تلقائياً
-              if (!config.tauri) config.tauri = {};
-              if (!config.tauri.bundle) config.tauri.bundle = {};
+              // لتوافق الإصدارات: لو البنية القديمة موجودة نعدلها، لو الجديدة نعدلها مباشرة
+              if (config.tauri) {
+                if (!config.tauri.bundle) config.tauri.bundle = {};
+                config.tauri.bundle.identifier = "com.clinic.crm";
+              } else {
+                if (!config.bundle) config.bundle = {};
+                config.bundle.identifier = "com.clinic.crm";
+              }
               
-              config.tauri.bundle.identifier = "com.clinic.crm";
-              
+              // تفريغ أوامر البناء المسبق لمنع خطأ missing script
               if (!config.build) config.build = {};
               config.build.beforeBuildCommand = "";
               config.build.beforeDevCommand = "";
               
               fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-              console.log("✅ tauri.conf.json configured for Linux successfully!");
+              console.log("✅ tauri.conf.json adapted for Linux successfully!");
             }
           '
+          
       - name: Build Linux App
         run: npx tauri build
+        
       - name: Upload Linux DEB Package
         uses: actions/upload-artifact@v4
         with:
