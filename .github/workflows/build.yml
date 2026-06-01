@@ -1,4 +1,4 @@
-name: Build Cross-Platform App (Android & Windows)
+name: Test Linux Build Only (Nexus Arab)
 
 on:
   push:
@@ -6,106 +6,52 @@ on:
   workflow_dispatch:
 
 jobs:
-  # --- بناء تطبيق الأندرويد ---
-  build-android:
+  # --- بناء تطبيق لينكس (DEB) للتجربة ---
+  build-linux:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Prepare build folder
-        run: |
-          mkdir -p app/build
-          rsync -av --exclude='.github' --exclude='app' --exclude='node_modules' . app/build/
-      - name: Init Capacitor
-        run: |
-          cd app
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
-          npx cap init "Clinic CRM" "dev.mohamedghanem.clinic" --web-dir build
-      - name: Add Android
-        run: |
-          cd app
-          npx cap add android
-      - name: Setup icon
-        run: |
-          # إنشاء مجلد الأصول الافتراضي لـ Capacitor وضمان وجوده
-          mkdir -p app/assets
-          
-          # نسخ أيقونة الـ 1024 الحقيقية وتسميتها بالاسم القياسي المعتمد للتوليد
-          if [ -f icon_1024.png ]; then
-            cp icon_1024.png app/assets/icon-only.png
-            cp icon_1024.png app/assets/icon.png
-          elif [ -f icon.png ]; then
-            cp icon.png app/assets/icon-only.png
-            cp icon.png app/assets/icon.png
-          fi
-      - name: Generate assets
-        run: |
-          cd app
-          # توليد كافة مقاسات الأندرويد أوتوماتيكياً من الأيقونة التي نسخناها
-          npx capacitor-assets generate --android
-      - name: Build APK
-        run: |
-          cd app/android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Clinic-CRM-Android-APK
-          path: app/android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-  # --- بناء تطبيق الويندوز ---
-  build-windows:
-    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          
+      - name: Install system dependencies for Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        
       - name: Install Tauri CLI & Setup Project
-        shell: pwsh
         run: |
           npm init -y
           npm install @tauri-apps/cli @tauri-apps/api
           mkdir dist
-          Copy-Item -Path ".*", "*" -Destination "dist" -Recurse -Exclude "src-tauri", ".github", "node_modules", "dist", "app" -ErrorAction SilentlyContinue
+          rsync -av --exclude='src-tauri' --exclude='.github' --exclude='node_modules' --exclude='dist' --exclude='app' . dist/
           npx tauri init --ci --app-name "Clinic_CRM" --frontend-dist "../dist" --dev-url "http://localhost:8080"
           
-          # للويندوز سنعطيه أولوية استخدام icon.png أو icon_1024.png المتوفر
-          if (Test-Path "icon.png") { 
-              npx tauri icon icon.png 
-          } elseif (Test-Path "icon_1024.png") {
-              npx tauri icon icon_1024.png
-          }
+          # ضبط الأيقونة للينكس
+          if [ -f icon.png ]; then
+            npx tauri icon icon.png
+          elif [ -f icon_1024.png ]; then
+            npx tauri icon icon_1024.png
+          fi
           
-          $configPath = "src-tauri/tauri.conf.json"
-          $content = Get-Content $configPath
-          $content = $content -replace '"com.tauri.dev"', '"dev.mohamedghanem.clinic"'
-          $content = $content -replace '"npm run build"', 'null'
-          $content = $content -replace '"npm run dev"', 'null'
-          $content | Set-Content $configPath
-      - name: Build Windows Desktop App
+          # ضبط الإعدادات للينكس باستخدام متغير صريح لمنع خطأ الـ sed
+          CONFIG_FILE="src-tauri/tauri.conf.json"
+          sed -i 's/"com.tauri.dev"/"dev.mohamedghanem.clinic"/' "$CONFIG_FILE"
+          sed -i 's/"npm run build": "[^"]*"/"npm run build": null/' "$CONFIG_FILE"
+          sed -i 's/"npm run dev": "[^"]*"/"npm run dev": null/' "$CONFIG_FILE"
+          
+      - name: Build Linux App
         run: npx tauri build
-      - name: Upload Windows Installer (MSI)
+        
+      - name: Upload Linux DEB Package
         uses: actions/upload-artifact@v4
         with:
-          name: Clinic-CRM-Windows-MSI
-          path: src-tauri/target/release/bundle/msi/*.msi
-      - name: Upload Windows Executable (EXE)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Clinic-CRM-Windows-EXE
-          path: src-tauri/target/release/*.exe
+          name: Clinic-CRM-Linux-DEB
+          path: src-tauri/target/release/bundle/deb/*.deb
