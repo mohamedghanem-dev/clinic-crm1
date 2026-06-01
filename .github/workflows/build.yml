@@ -37,7 +37,11 @@ jobs:
           cd app
           npx cap add android
       - name: Setup icon
-        run: cp ../icon.png icon.png && python3 resize_icon.py
+        run: |
+          # نسخ الأيقونة الحقيقية من المجلد الرئيسي إلى مجلد app برأس مرفوع ومسار صحيح
+          cp icon.png app/icon.png
+          cd app
+          python3 resize_icon.py
       - name: Generate assets
         run: |
           cd app
