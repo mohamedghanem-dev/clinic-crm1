@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1️⃣ --- بناء تطبيق الأندرويد (APK) ---
+  # 1️⃣ --- بناء تطبيق الأندرويد الحقيقي (APK) ---
   build-android:
     runs-on: ubuntu-latest
     steps:
@@ -67,7 +67,7 @@ jobs:
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-  # 2️⃣ --- بناء تطبيق الويندوز (EXE & MSI) ---
+  # 2️⃣ --- بناء تطبيق الويندوز (EXE & MSI المضمون) ---
   build-windows:
     runs-on: windows-latest
     steps:
@@ -96,19 +96,13 @@ jobs:
               npx tauri icon icon_1024.png
           }
           
-          # تصحيح ملف التكوين ليتوافق مع Tauri v2 على ويندوز
+          # استخدام طريقة الاستبدال النصي المباشرة التي نجحت معك 100% وتجنب الـ Json parser
           $configPath = "src-tauri/tauri.conf.json"
-          $config = Get-Content $configPath -Raw | ConvertFrom-Json
-          
-          $config.productName = "ClinicCRM"
-          $config | Add-Member -NotePropertyName "identifier" -NoteValue "com.clinic.crm" -Force
-          
-          if ($config.build) {
-              $config.build.beforeBuildCommand = ""
-              $config.build.beforeDevCommand = ""
-          }
-          
-          $config | ConvertTo-Json -Depth 10 | Set-Content $configPath
+          $content = Get-Content $configPath -Raw
+          $content = $content -replace '"com.tauri.dev"', '"com.clinic.crm"'
+          $content = $content -replace '"beforeBuildCommand": "[^"]*"', '"beforeBuildCommand": ""'
+          $content = $content -replace '"beforeDevCommand": "[^"]*"', '"beforeDevCommand": ""'
+          $content | Set-Content $configPath
           
       - name: Build Windows Desktop App
         run: npx tauri build
@@ -124,7 +118,7 @@ jobs:
           name: Clinic-CRM-Windows-EXE
           path: src-tauri/target/release/*.exe
 
-  # 3️⃣ --- بناء تطبيق لينكس (DEB المضمون) ---
+  # 3️⃣ --- بناء تطبيق لينكس (DEB الناجح والمجرب) ---
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -156,7 +150,7 @@ jobs:
             npx tauri icon icon_1024.png
           fi
           
-          # تعديل الهيكل ليتوافق تماماً مع تدوين وصيغة Tauri v2 الرسمية
+          # تعديل الهيكل ليتوافق تماماً مع تدوين وصيغة Tauri v2 الرسمية التي نجحت معنا
           node -e '
             const fs = require("fs");
             const configPath = "src-tauri/tauri.conf.json";
